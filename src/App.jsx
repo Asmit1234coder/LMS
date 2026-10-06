@@ -5,16 +5,21 @@ import Dashboard from './pages/Dashboard';
 import Books from './pages/Books';
 import IssueReturn from './pages/IssueReturn';
 import Members from './pages/Members';
-import { isSeeded, markSeeded, setBooks, setMembers, setTransactions } from './utils/storage';
+import { setBooks } from './services/bookService';
+import { setMembers } from './services/memberService';
+import { setTransactions, addActivityEntry } from './services/circulationService';
 import { initialBooks, initialMembers, initialTransactions, initialActivity } from './data/initialData';
 
-// Seed data on first launch
-if (!isSeeded()) {
+const SEEDED_KEY = 'library_seeded';
+const ACTIVITY_KEY = 'library_activity';
+
+// Seed data on first launch using the new localStorage keys
+if (localStorage.getItem(SEEDED_KEY) !== 'true') {
   setBooks(initialBooks);
   setMembers(initialMembers);
   setTransactions(initialTransactions);
-  localStorage.setItem('lms_activity', JSON.stringify(initialActivity));
-  markSeeded();
+  localStorage.setItem(ACTIVITY_KEY, JSON.stringify(initialActivity));
+  localStorage.setItem(SEEDED_KEY, 'true');
 }
 
 function renderPage(activePage, onDataChange) {
@@ -23,7 +28,7 @@ function renderPage(activePage, onDataChange) {
     case 'books': return <Books onDataChange={onDataChange} />;
     case 'issue-return': return <IssueReturn onDataChange={onDataChange} />;
     case 'members': return <Members onDataChange={onDataChange} />;
-    default: return <Dashboard />;
+    default: return <Dashboard key={activePage} />;
   }
 }
 
@@ -32,7 +37,6 @@ export default function App() {
   const [, forceUpdate] = useState(0);
 
   function handleDataChange() {
-    // Force Dashboard to re-render with fresh localStorage data when navigating back
     forceUpdate((n) => n + 1);
   }
 

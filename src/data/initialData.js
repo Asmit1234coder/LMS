@@ -1,4 +1,5 @@
 // Initial seed data for the Library Management System
+// ~12 books, 6 members — realistic college library data
 
 export const initialBooks = [
   {
@@ -8,6 +9,7 @@ export const initialBooks = [
     category: 'Software Engineering',
     isbn: '978-0132350884',
     status: 'Issued',
+    addedAt: '2026-08-01T10:00:00.000Z',
   },
   {
     id: 'B002',
@@ -16,6 +18,7 @@ export const initialBooks = [
     category: 'Programming',
     isbn: '978-1260440232',
     status: 'Available',
+    addedAt: '2026-08-02T10:00:00.000Z',
   },
   {
     id: 'B003',
@@ -24,6 +27,7 @@ export const initialBooks = [
     category: 'Databases',
     isbn: '978-0078022159',
     status: 'Available',
+    addedAt: '2026-08-03T10:00:00.000Z',
   },
   {
     id: 'B004',
@@ -32,6 +36,7 @@ export const initialBooks = [
     category: 'Operating Systems',
     isbn: '978-1118063330',
     status: 'Issued',
+    addedAt: '2026-08-04T10:00:00.000Z',
   },
   {
     id: 'B005',
@@ -40,6 +45,7 @@ export const initialBooks = [
     category: 'Networking',
     isbn: '978-0132126953',
     status: 'Available',
+    addedAt: '2026-08-05T10:00:00.000Z',
   },
   {
     id: 'B006',
@@ -48,6 +54,7 @@ export const initialBooks = [
     category: 'Software Engineering',
     isbn: '978-1449373320',
     status: 'Available',
+    addedAt: '2026-08-10T10:00:00.000Z',
   },
   {
     id: 'B007',
@@ -56,6 +63,7 @@ export const initialBooks = [
     category: 'Algorithms',
     isbn: '978-0262033848',
     status: 'Available',
+    addedAt: '2026-08-12T10:00:00.000Z',
   },
   {
     id: 'B008',
@@ -64,6 +72,43 @@ export const initialBooks = [
     category: 'Software Engineering',
     isbn: '978-0135957059',
     status: 'Available',
+    addedAt: '2026-08-15T10:00:00.000Z',
+  },
+  {
+    id: 'B009',
+    title: 'Computer Organization and Architecture',
+    author: 'William Stallings',
+    category: 'Computer Architecture',
+    isbn: '978-0134997193',
+    status: 'Available',
+    addedAt: '2026-08-20T10:00:00.000Z',
+  },
+  {
+    id: 'B010',
+    title: 'Artificial Intelligence: A Modern Approach',
+    author: 'Stuart Russell',
+    category: 'Artificial Intelligence',
+    isbn: '978-0134610993',
+    status: 'Available',
+    addedAt: '2026-09-01T10:00:00.000Z',
+  },
+  {
+    id: 'B011',
+    title: 'Software Engineering',
+    author: 'Ian Sommerville',
+    category: 'Software Engineering',
+    isbn: '978-0133943030',
+    status: 'Available',
+    addedAt: '2026-09-05T10:00:00.000Z',
+  },
+  {
+    id: 'B012',
+    title: 'Data Structures Using C',
+    author: 'Reema Thareja',
+    category: 'Programming',
+    isbn: '978-0198099307',
+    status: 'Available',
+    addedAt: '2026-09-10T10:00:00.000Z',
   },
 ];
 
@@ -74,6 +119,7 @@ export const initialMembers = [
     email: 'rahul.sharma@college.edu',
     phone: '9876543210',
     booksIssued: 1,
+    joinedAt: '2026-07-15T10:00:00.000Z',
   },
   {
     id: 'M002',
@@ -81,6 +127,7 @@ export const initialMembers = [
     email: 'priya.patel@college.edu',
     phone: '9845021345',
     booksIssued: 0,
+    joinedAt: '2026-07-20T10:00:00.000Z',
   },
   {
     id: 'M003',
@@ -88,6 +135,7 @@ export const initialMembers = [
     email: 'amit.kumar@college.edu',
     phone: '9734512678',
     booksIssued: 1,
+    joinedAt: '2026-07-22T10:00:00.000Z',
   },
   {
     id: 'M004',
@@ -95,6 +143,7 @@ export const initialMembers = [
     email: 'sneha.reddy@college.edu',
     phone: '9654321098',
     booksIssued: 0,
+    joinedAt: '2026-08-01T10:00:00.000Z',
   },
   {
     id: 'M005',
@@ -102,6 +151,15 @@ export const initialMembers = [
     email: 'vikram.singh@college.edu',
     phone: '9543210987',
     booksIssued: 0,
+    joinedAt: '2026-08-10T10:00:00.000Z',
+  },
+  {
+    id: 'M006',
+    name: 'Deepa Nair',
+    email: 'deepa.nair@college.edu',
+    phone: '9432109876',
+    booksIssued: 0,
+    joinedAt: '2026-09-01T10:00:00.000Z',
   },
 ];
 
@@ -110,6 +168,7 @@ export const initialTransactions = [
     id: 'T001',
     bookId: 'B001',
     bookTitle: 'Clean Code',
+    bookCategory: 'Software Engineering',
     memberId: 'M001',
     memberName: 'Rahul Sharma',
     issueDate: '2026-09-20',
@@ -120,11 +179,24 @@ export const initialTransactions = [
     id: 'T002',
     bookId: 'B004',
     bookTitle: 'Operating System Concepts',
+    bookCategory: 'Operating Systems',
     memberId: 'M003',
     memberName: 'Amit Kumar',
     issueDate: '2026-09-25',
     dueDate: '2026-10-09',
     status: 'Issued',
+  },
+  {
+    id: 'T003',
+    bookId: 'B003',
+    bookTitle: 'Database System Concepts',
+    bookCategory: 'Databases',
+    memberId: 'M002',
+    memberName: 'Priya Patel',
+    issueDate: '2026-09-10',
+    dueDate: '2026-09-24',
+    returnDate: '2026-09-22',
+    status: 'Returned',
   },
 ];
 
@@ -142,11 +214,11 @@ export const initialActivity = [
   {
     id: 3,
     message: 'Priya Patel returned "Database System Concepts"',
-    timestamp: '2026-09-28T09:00:00.000Z',
+    timestamp: '2026-09-22T09:00:00.000Z',
   },
   {
     id: 4,
     message: 'Admin added "Designing Data-Intensive Applications"',
-    timestamp: '2026-09-30T11:00:00.000Z',
+    timestamp: '2026-08-10T11:00:00.000Z',
   },
 ];
