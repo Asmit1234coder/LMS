@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: library-management-system
+  labels:
+    app: library-management-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: library-management-system
+  template:
+    metadata:
+      labels:
+        app: library-management-system
+    spec:
+      containers:
+        - name: library-management-system
+          image: library-management-system:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
