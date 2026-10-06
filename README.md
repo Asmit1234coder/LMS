@@ -141,38 +141,47 @@ src/
 | LIB-9  | Configure Jenkins CI               |
 | LIB-10 | Add Kubernetes configuration       |
 
-## Observability with Grafana Cloud
+## Observability — Grafana
 
-To gain insights into application health and user behavior, this project is instrumented with **Grafana Faro Web SDK**.
+The application uses **Grafana Cloud Frontend Observability** (via Grafana Faro Web SDK) to monitor frontend application health and user interactions.
 
-### Why Grafana is Used
-Grafana Cloud provides centralized observability. By using Grafana Faro, we can capture real user monitoring (RUM) data directly from the browser without needing a complex backend infrastructure. This helps monitor performance bottlenecks, track errors, and understand how users interact with the Library Management System.
+This is a frontend-only application. These are frontend service operations and telemetry events, not backend REST APIs.
 
-### Monitored Metrics & Events
-- **Default Telemetry**: Page/navigation tracking, browser performance metrics, Web Vitals (LCP, FID, CLS, etc.), JavaScript errors, and user sessions.
-- **Custom Application Events**:
-  - `book_added`: Triggered when a new book is successfully added to the catalog.
-  - `book_issued`: Triggered when a book is successfully issued to a member.
-  - `book_returned`: Triggered when a member successfully returns a book.
-  - `member_added`: Triggered when a new member is successfully registered.
+### What is Monitored
+- **Frontend Errors**: JavaScript exceptions and unhandled promise rejections.
+- **Page Performance**: Load times and resource timings.
+- **Web Vitals**: Core Web Vitals like LCP, FID, and CLS.
+- **Navigation**: Page view tracking.
+- **Library Operation Events**: Custom telemetry for application logic.
+
+### Custom Library Events Tracked
+- `book_added`
+- `book_deleted`
+- `book_issued`
+- `book_returned`
+- `member_added`
+- `member_deleted`
+
+Events are strictly recorded **after** a successful operation. Sensitive data (like passwords, phone numbers, or emails) is intentionally excluded from these custom events.
 
 ### Local Configuration
-To send observability data to Grafana Cloud, you need a telemetry URL.
-1. Copy `.env.example` to `.env`:
+
+To enable telemetry, you must configure the application with your Grafana Cloud Collector URL.
+1. Create a `.env` file based on `.env.example`:
    ```bash
    cp .env.example .env
    ```
-2. Update the `VITE_GRAFANA_TELEMETRY_URL` in `.env` with your Grafana Cloud Collector URL (from the Frontend Observability integration settings).
+2. Open `.env` and set `VITE_GRAFANA_FARO_URL` to your Grafana Cloud Collector URL. You can optionally change `VITE_GRAFANA_APP_NAME` and `VITE_GRAFANA_APP_ENV`.
 
-*Note: The application will continue to function normally even if the telemetry URL is not configured.*
+*Note: The application will continue to run perfectly fine even if the telemetry URL is not configured.*
 
-### Verifying Data in Grafana Cloud
-1. Ensure your local app is running and the `.env` file is configured correctly.
-2. Interact with the application (add books, members, issue books).
-3. Log in to your Grafana Cloud account.
-4. Navigate to **Frontend Observability**.
-5. Check the overview dashboards for Web Vitals, Errors, and Sessions.
-6. Check the **Logs** or **Events** explorer to see the custom events (`book_added`, etc.) appearing in real time.
+### Verifying Telemetry in Grafana
+Once you have supplied the Grafana configuration:
+1. Start the React application (`npm run dev`).
+2. Perform an action like issuing a book, returning a book, or adding a member.
+3. Log into Grafana Cloud and navigate to **Frontend Observability**.
+4. Check the **Overview** to see Web Vitals and Page Views.
+5. Go to the **Events** explorer or **Logs** section to verify the custom telemetry events (e.g., `book_issued`) were received successfully.
 
 ---
 
