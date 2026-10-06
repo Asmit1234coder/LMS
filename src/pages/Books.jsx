@@ -1,12 +1,6 @@
 import { useState } from 'react';
-import { getBooks, setBooks, addActivity } from '../utils/storage';
-import { faro } from '@grafana/faro-web-sdk';
-
-function generateId(books) {
-  const nums = books.map((b) => parseInt(b.id.replace('B', ''), 10)).filter(Boolean);
-  const max = nums.length ? Math.max(...nums) : 0;
-  return `B${String(max + 1).padStart(3, '0')}`;
-}
+import { getBooks, addBook, deleteBook } from '../services/bookService';
+import { trackBookAdded, trackBookDeleted } from '../observability/events';
 
 const EMPTY_FORM = { title: '', author: '', category: '', isbn: '' };
 
@@ -17,11 +11,16 @@ export default function Books({ onDataChange }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
+  const [message, setMessage] = useState('');
 
-  function save(updated) {
-    setBooks(updated);
-    setLocalBooks(updated);
+  function refresh() {
+    setLocalBooks(getBooks());
     if (onDataChange) onDataChange();
+  }
+
+  function showMessage(msg) {
+    setMessage(msg);
+    setTimeout(() => setMessage(''), 3000);
   }
 
   function handleFieldChange(e) {
@@ -43,44 +42,35 @@ export default function Books({ onDataChange }) {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    const newBook = {
-      id: generateId(books),
-      title: form.title.trim(),
-      author: form.author.trim(),
-      category: form.category.trim(),
-      isbn: form.isbn.trim() || '—',
-      status: 'Available',
-    };
-    const updated = [...books, newBook];
-    save(updated);
-    addActivity(`Admin added "${newBook.title}"`);
+    const newBook = addBook(form);
+    trackBookAdded(newBook);
     
-    if (faro.api) {
-      faro.api.pushEvent('book_added', {
-        title: newBook.title,
-        category: newBook.category
-      });
-    }
-
     setForm(EMPTY_FORM);
     setShowForm(false);
+    showMessage(`Book "${newBook.title}" added successfully.`);
+    refresh();
   }
 
   function handleDelete(id) {
     const book = books.find((b) => b.id === id);
-    if (book && book.status === 'Issued') {
-      alert('Cannot delete a book that is currently issued. Return it first.');
-      return;
-    }
     if (!window.confirm(`Delete "${book?.title}"? This cannot be undone.`)) return;
-    save(books.filter((b) => b.id !== id));
+    
+    const result = deleteBook(id);
+    if (result.success) {
+      trackBookDeleted(result.book);
+      showMessage(`Book deleted successfully.`);
+      refresh();
+    } else {
+      alert(result.error);
+    }
   }
 
   const filtered = books.filter((b) => {
     const matchesSearch =
       b.title.toLowerCase().includes(search.toLowerCase()) ||
       b.author.toLowerCase().includes(search.toLowerCase()) ||
-      b.category.toLowerCase().includes(search.toLowerCase());
+      b.category.toLowerCase().includes(search.toLowerCase()) ||
+      b.id.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = filterStatus === 'All' || b.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -90,14 +80,27 @@ export default function Books({ onDataChange }) {
       <div className="page-header">
         <div>
           <h1 className="page-title">Books</h1>
-          <div className="page-subtitle">{books.length} books in collection</div>
+          <div className="page-subtitle">Manage library collection</div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
           {showForm ? 'Cancel' : '+ Add Book'}
         </button>
       </div>
 
-      {/* Add Book Form */}
+      {message && (
+        <div style={{
+          background: 'var(--color-success-light)',
+          border: '1px solid #bbf7d0',
+          padding: '10px 14px',
+          marginBottom: '16px',
+          fontSize: '0.85rem',
+          color: 'var(--color-success)',
+          borderRadius: 'var(--radius-sm)'
+        }}>
+          {message}
+        </div>
+      )}
+
       {showForm && (
         <div className="add-form-panel">
           <div className="add-form-title">Add New Book</div>
@@ -106,76 +109,55 @@ export default function Books({ onDataChange }) {
               <div className="form-group">
                 <label className="form-label" htmlFor="title">Title *</label>
                 <input
-                  id="title"
-                  name="title"
-                  className="form-control"
-                  placeholder="Book title"
-                  value={form.title}
-                  onChange={handleFieldChange}
+                  id="title" name="title" className="form-control"
+                  placeholder="Book title" value={form.title} onChange={handleFieldChange}
                 />
                 {errors.title && <span className="form-error">{errors.title}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="author">Author *</label>
                 <input
-                  id="author"
-                  name="author"
-                  className="form-control"
-                  placeholder="Author name"
-                  value={form.author}
-                  onChange={handleFieldChange}
+                  id="author" name="author" className="form-control"
+                  placeholder="Author name" value={form.author} onChange={handleFieldChange}
                 />
                 {errors.author && <span className="form-error">{errors.author}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="category">Category *</label>
                 <input
-                  id="category"
-                  name="category"
-                  className="form-control"
-                  placeholder="e.g. Programming"
-                  value={form.category}
-                  onChange={handleFieldChange}
+                  id="category" name="category" className="form-control"
+                  placeholder="e.g. Programming" value={form.category} onChange={handleFieldChange}
                 />
                 {errors.category && <span className="form-error">{errors.category}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="isbn">ISBN</label>
                 <input
-                  id="isbn"
-                  name="isbn"
-                  className="form-control"
-                  placeholder="Optional"
-                  value={form.isbn}
-                  onChange={handleFieldChange}
+                  id="isbn" name="isbn" className="form-control"
+                  placeholder="Optional" value={form.isbn} onChange={handleFieldChange}
                 />
               </div>
             </div>
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary">Add Book</button>
+              <button type="submit" className="btn btn-primary">Save Book</button>
               <button type="button" className="btn btn-secondary" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setErrors({}); }}>Cancel</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Search & Filter */}
       <div className="toolbar">
         <input
           type="search"
-          id="book-search"
           className="form-control search-input"
-          placeholder="Search by title, author, or category..."
+          placeholder="Search by ID, title, author..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search books"
         />
         <select
-          id="book-filter"
           className="form-control"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          aria-label="Filter by status"
           style={{ width: 'auto' }}
         >
           <option value="All">All Status</option>
@@ -184,7 +166,6 @@ export default function Books({ onDataChange }) {
         </select>
       </div>
 
-      {/* Books Table */}
       <div className="panel">
         <div className="table-wrapper">
           <table>
@@ -205,7 +186,7 @@ export default function Books({ onDataChange }) {
                   <td colSpan={7}>
                     <div className="empty-state">
                       <div className="empty-state-title">No books found</div>
-                      {search || filterStatus !== 'All' ? 'Try adjusting your search or filter.' : 'Add a book to get started.'}
+                      Try changing your search or add a new book.
                     </div>
                   </td>
                 </tr>
@@ -214,8 +195,8 @@ export default function Books({ onDataChange }) {
                   <tr key={book.id}>
                     <td style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{book.id}</td>
                     <td style={{ fontWeight: 500 }}>{book.title}</td>
-                    <td style={{ color: 'var(--color-text-secondary)' }}>{book.author}</td>
-                    <td style={{ color: 'var(--color-text-secondary)' }}>{book.category}</td>
+                    <td className="text-secondary">{book.author}</td>
+                    <td className="text-secondary">{book.category}</td>
                     <td style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>{book.isbn}</td>
                     <td>
                       <span className={`badge ${book.status === 'Available' ? 'badge-available' : 'badge-issued'}`}>
@@ -224,9 +205,9 @@ export default function Books({ onDataChange }) {
                     </td>
                     <td>
                       <button
-                        className="btn btn-danger btn-sm"
+                        className="btn btn-secondary btn-sm"
                         onClick={() => handleDelete(book.id)}
-                        aria-label={`Delete ${book.title}`}
+                        style={{ color: 'var(--color-danger)' }}
                       >
                         Delete
                       </button>

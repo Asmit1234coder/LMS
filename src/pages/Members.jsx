@@ -1,12 +1,6 @@
 import { useState } from 'react';
-import { getMembers, setMembers, addActivity } from '../utils/storage';
-import { faro } from '@grafana/faro-web-sdk';
-
-function generateId(members) {
-  const nums = members.map((m) => parseInt(m.id.replace('M', ''), 10)).filter(Boolean);
-  const max = nums.length ? Math.max(...nums) : 0;
-  return `M${String(max + 1).padStart(3, '0')}`;
-}
+import { getMembers, addMember, deleteMember } from '../services/memberService';
+import { trackMemberAdded, trackMemberDeleted } from '../observability/events';
 
 const EMPTY_FORM = { name: '', email: '', phone: '' };
 
@@ -16,11 +10,16 @@ export default function Members({ onDataChange }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
+  const [message, setMessage] = useState('');
 
-  function save(updated) {
-    setMembers(updated);
-    setLocalMembers(updated);
+  function refresh() {
+    setLocalMembers(getMembers());
     if (onDataChange) onDataChange();
+  }
+
+  function showMessage(msg) {
+    setMessage(msg);
+    setTimeout(() => setMessage(''), 3000);
   }
 
   function handleFieldChange(e) {
@@ -33,7 +32,7 @@ export default function Members({ onDataChange }) {
     const errs = {};
     if (!form.name.trim()) errs.name = 'Name is required';
     if (!form.email.trim()) errs.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Enter a valid email';
+    else if (!/^\S+@\S+\.\S+$/.test(form.email)) errs.email = 'Enter a valid email';
     if (!form.phone.trim()) errs.phone = 'Phone is required';
     else if (!/^\d{10}$/.test(form.phone.trim())) errs.phone = 'Enter a valid 10-digit phone number';
     return errs;
@@ -44,41 +43,34 @@ export default function Members({ onDataChange }) {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    const newMember = {
-      id: generateId(members),
-      name: form.name.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      booksIssued: 0,
-    };
-    const updated = [...members, newMember];
-    save(updated);
-    addActivity(`Admin added member "${newMember.name}"`);
+    const newMember = addMember(form);
+    trackMemberAdded();
     
-    if (faro.api) {
-      faro.api.pushEvent('member_added', {
-        nameLength: String(newMember.name.length)
-      });
-    }
-
     setForm(EMPTY_FORM);
     setShowForm(false);
+    showMessage(`Member "${newMember.name}" registered successfully.`);
+    refresh();
   }
 
   function handleDelete(id) {
     const member = members.find((m) => m.id === id);
-    if (member && member.booksIssued > 0) {
-      alert(`Cannot delete "${member.name}" — they have ${member.booksIssued} book(s) currently issued.`);
-      return;
-    }
     if (!window.confirm(`Delete member "${member?.name}"? This cannot be undone.`)) return;
-    save(members.filter((m) => m.id !== id));
+    
+    const result = deleteMember(id);
+    if (result.success) {
+      trackMemberDeleted();
+      showMessage('Member deleted successfully.');
+      refresh();
+    } else {
+      alert(result.error);
+    }
   }
 
   const filtered = members.filter((m) =>
     m.name.toLowerCase().includes(search.toLowerCase()) ||
     m.email.toLowerCase().includes(search.toLowerCase()) ||
-    m.phone.includes(search)
+    m.phone.includes(search) ||
+    m.id.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -86,14 +78,27 @@ export default function Members({ onDataChange }) {
       <div className="page-header">
         <div>
           <h1 className="page-title">Members</h1>
-          <div className="page-subtitle">{members.length} registered members</div>
+          <div className="page-subtitle">Manage library members</div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
           {showForm ? 'Cancel' : '+ Add Member'}
         </button>
       </div>
 
-      {/* Add Member Form */}
+      {message && (
+        <div style={{
+          background: 'var(--color-success-light)',
+          border: '1px solid #bbf7d0',
+          padding: '10px 14px',
+          marginBottom: '16px',
+          fontSize: '0.85rem',
+          color: 'var(--color-success)',
+          borderRadius: 'var(--radius-sm)'
+        }}>
+          {message}
+        </div>
+      )}
+
       {showForm && (
         <div className="add-form-panel">
           <div className="add-form-title">Add New Member</div>
@@ -102,64 +107,46 @@ export default function Members({ onDataChange }) {
               <div className="form-group">
                 <label className="form-label" htmlFor="name">Full Name *</label>
                 <input
-                  id="name"
-                  name="name"
-                  className="form-control"
-                  placeholder="e.g. Rahul Sharma"
-                  value={form.name}
-                  onChange={handleFieldChange}
+                  id="name" name="name" className="form-control"
+                  placeholder="e.g. Rahul Sharma" value={form.name} onChange={handleFieldChange}
                 />
                 {errors.name && <span className="form-error">{errors.name}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="email">Email *</label>
                 <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  className="form-control"
-                  placeholder="email@college.edu"
-                  value={form.email}
-                  onChange={handleFieldChange}
+                  id="email" name="email" type="email" className="form-control"
+                  placeholder="email@college.edu" value={form.email} onChange={handleFieldChange}
                 />
                 {errors.email && <span className="form-error">{errors.email}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="phone">Phone *</label>
                 <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  className="form-control"
-                  placeholder="10-digit number"
-                  value={form.phone}
-                  onChange={handleFieldChange}
+                  id="phone" name="phone" type="tel" className="form-control"
+                  placeholder="10-digit number" value={form.phone} onChange={handleFieldChange}
                 />
                 {errors.phone && <span className="form-error">{errors.phone}</span>}
               </div>
             </div>
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary">Add Member</button>
+              <button type="submit" className="btn btn-primary">Save Member</button>
               <button type="button" className="btn btn-secondary" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setErrors({}); }}>Cancel</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Search */}
       <div className="toolbar">
         <input
           type="search"
-          id="member-search"
           className="form-control search-input"
-          placeholder="Search by name, email, or phone..."
+          placeholder="Search by ID, name, email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search members"
         />
       </div>
 
-      {/* Members Table */}
       <div className="panel">
         <div className="table-wrapper">
           <table>
@@ -179,7 +166,7 @@ export default function Members({ onDataChange }) {
                   <td colSpan={6}>
                     <div className="empty-state">
                       <div className="empty-state-title">No members found</div>
-                      {search ? 'Try a different search.' : 'Add a member to get started.'}
+                      Try a different search or add a member.
                     </div>
                   </td>
                 </tr>
@@ -188,8 +175,8 @@ export default function Members({ onDataChange }) {
                   <tr key={member.id}>
                     <td style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{member.id}</td>
                     <td style={{ fontWeight: 500 }}>{member.name}</td>
-                    <td style={{ color: 'var(--color-text-secondary)' }}>{member.email}</td>
-                    <td style={{ color: 'var(--color-text-secondary)' }}>{member.phone}</td>
+                    <td className="text-secondary">{member.email}</td>
+                    <td className="text-secondary">{member.phone}</td>
                     <td>
                       <span style={{
                         color: member.booksIssued > 0 ? 'var(--color-warning)' : 'var(--color-text-muted)',
@@ -200,9 +187,9 @@ export default function Members({ onDataChange }) {
                     </td>
                     <td>
                       <button
-                        className="btn btn-danger btn-sm"
+                        className="btn btn-secondary btn-sm"
                         onClick={() => handleDelete(member.id)}
-                        aria-label={`Delete member ${member.name}`}
+                        style={{ color: 'var(--color-danger)' }}
                       >
                         Delete
                       </button>

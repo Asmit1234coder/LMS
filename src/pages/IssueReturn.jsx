@@ -1,11 +1,8 @@
 import { useState } from 'react';
-import {
-  getBooks, setBooks,
-  getMembers, setMembers,
-  getTransactions, setTransactions,
-  addActivity,
-} from '../utils/storage';
-import { faro } from '@grafana/faro-web-sdk';
+import { getBooks } from '../services/bookService';
+import { getMembers } from '../services/memberService';
+import { getTransactions, issueBook, returnBook, getIssuedBooks } from '../services/circulationService';
+import { trackBookIssued, trackBookReturned } from '../observability/events';
 
 function today() {
   return new Date().toISOString().split('T')[0];
@@ -17,12 +14,6 @@ function dueDate() {
   return d.toISOString().split('T')[0];
 }
 
-function generateTxId(txs) {
-  const nums = txs.map((t) => parseInt(t.id.replace('T', ''), 10)).filter(Boolean);
-  const max = nums.length ? Math.max(...nums) : 0;
-  return `T${String(max + 1).padStart(3, '0')}`;
-}
-
 const EMPTY_ISSUE = { bookId: '', memberId: '', issueDate: today(), dueDate: dueDate() };
 
 export default function IssueReturn({ onDataChange }) {
@@ -32,7 +23,7 @@ export default function IssueReturn({ onDataChange }) {
   const [transactions, setLocalTransactions] = useState(() => getTransactions());
   const [form, setForm] = useState(EMPTY_ISSUE);
   const [errors, setErrors] = useState({});
-  const [successMsg, setSuccessMsg] = useState('');
+  const [message, setMessage] = useState('');
 
   function refresh() {
     setLocalBooks(getBooks());
@@ -41,9 +32,9 @@ export default function IssueReturn({ onDataChange }) {
     if (onDataChange) onDataChange();
   }
 
-  function showSuccess(msg) {
-    setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(''), 4000);
+  function showMessage(msg) {
+    setMessage(msg);
+    setTimeout(() => setMessage(''), 3000);
   }
 
   function handleFieldChange(e) {
@@ -66,87 +57,31 @@ export default function IssueReturn({ onDataChange }) {
     const errs = validateIssue();
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    const book = books.find((b) => b.id === form.bookId);
-    const member = members.find((m) => m.id === form.memberId);
-
-    if (book.status === 'Issued') {
-      setErrors({ bookId: 'This book is already issued.' });
-      return;
-    }
-
-    // Update book status
-    const updatedBooks = books.map((b) =>
-      b.id === book.id ? { ...b, status: 'Issued' } : b
-    );
-    setBooks(updatedBooks);
-
-    // Update member book count
-    const updatedMembers = members.map((m) =>
-      m.id === member.id ? { ...m, booksIssued: m.booksIssued + 1 } : m
-    );
-    setMembers(updatedMembers);
-
-    // Create transaction
-    const tx = {
-      id: generateTxId(transactions),
-      bookId: book.id,
-      bookTitle: book.title,
-      memberId: member.id,
-      memberName: member.name,
-      issueDate: form.issueDate,
-      dueDate: form.dueDate,
-      status: 'Issued',
-    };
-    const updatedTx = [...transactions, tx];
-    setTransactions(updatedTx);
-
-    addActivity(`${member.name} issued "${book.title}"`);
+    const result = issueBook(form);
     
-    if (faro.api) {
-      faro.api.pushEvent('book_issued', {
-        bookId: book.id,
-        memberId: member.id
-      });
+    if (result.success) {
+      trackBookIssued(result.transaction);
+      setForm(EMPTY_ISSUE);
+      showMessage(`"${result.book.title}" successfully issued to ${result.member.name}.`);
+      refresh();
+    } else {
+      setErrors({ bookId: result.error });
     }
-
-    setForm(EMPTY_ISSUE);
-    showSuccess(`"${book.title}" successfully issued to ${member.name}.`);
-    refresh();
   }
 
   function handleReturn(txId) {
     const tx = transactions.find((t) => t.id === txId);
     if (!window.confirm(`Return "${tx.bookTitle}" from ${tx.memberName}?`)) return;
 
-    // Update book status
-    const updatedBooks = books.map((b) =>
-      b.id === tx.bookId ? { ...b, status: 'Available' } : b
-    );
-    setBooks(updatedBooks);
-
-    // Update member book count
-    const updatedMembers = members.map((m) =>
-      m.id === tx.memberId ? { ...m, booksIssued: Math.max(0, m.booksIssued - 1) } : m
-    );
-    setMembers(updatedMembers);
-
-    // Mark transaction as returned
-    const updatedTx = transactions.map((t) =>
-      t.id === txId ? { ...t, status: 'Returned', returnDate: today() } : t
-    );
-    setTransactions(updatedTx);
-
-    addActivity(`${tx.memberName} returned "${tx.bookTitle}"`);
+    const result = returnBook(txId);
     
-    if (faro.api) {
-      faro.api.pushEvent('book_returned', {
-        bookId: tx.bookId,
-        memberId: tx.memberId
-      });
+    if (result.success) {
+      trackBookReturned(result.transaction);
+      showMessage(`"${tx.bookTitle}" returned successfully.`);
+      refresh();
+    } else {
+      alert(result.error);
     }
-
-    showSuccess(`"${tx.bookTitle}" returned successfully.`);
-    refresh();
   }
 
   const availableBooks = books.filter((b) => b.status === 'Available');
@@ -157,44 +92,39 @@ export default function IssueReturn({ onDataChange }) {
       <div className="page-header">
         <div>
           <h1 className="page-title">Issue / Return</h1>
-          <div className="page-subtitle">Manage book lending and returns</div>
+          <div className="page-subtitle">Manage book circulation</div>
         </div>
       </div>
 
-      {/* Success message */}
-      {successMsg && (
+      {message && (
         <div style={{
           background: 'var(--color-success-light)',
           border: '1px solid #bbf7d0',
-          borderRadius: 'var(--radius-sm)',
           padding: '10px 14px',
           marginBottom: '16px',
           fontSize: '0.85rem',
           color: 'var(--color-success)',
+          borderRadius: 'var(--radius-sm)'
         }}>
-          {successMsg}
+          {message}
         </div>
       )}
 
-      {/* Tabs */}
       <div className="tabs">
         <button
           className={`tab-btn ${tab === 'issue' ? 'active' : ''}`}
           onClick={() => setTab('issue')}
-          aria-selected={tab === 'issue'}
         >
           Issue Book
         </button>
         <button
           className={`tab-btn ${tab === 'return' ? 'active' : ''}`}
           onClick={() => setTab('return')}
-          aria-selected={tab === 'return'}
         >
           Return Book
         </button>
       </div>
 
-      {/* Issue Tab */}
       {tab === 'issue' && (
         <div className="add-form-panel">
           <div className="add-form-title">Issue a Book</div>
@@ -203,11 +133,8 @@ export default function IssueReturn({ onDataChange }) {
               <div className="form-group">
                 <label className="form-label" htmlFor="bookId">Book *</label>
                 <select
-                  id="bookId"
-                  name="bookId"
-                  className="form-control"
-                  value={form.bookId}
-                  onChange={handleFieldChange}
+                  id="bookId" name="bookId" className="form-control"
+                  value={form.bookId} onChange={handleFieldChange}
                 >
                   <option value="">— Select a book —</option>
                   {availableBooks.map((b) => (
@@ -219,11 +146,8 @@ export default function IssueReturn({ onDataChange }) {
               <div className="form-group">
                 <label className="form-label" htmlFor="memberId">Member *</label>
                 <select
-                  id="memberId"
-                  name="memberId"
-                  className="form-control"
-                  value={form.memberId}
-                  onChange={handleFieldChange}
+                  id="memberId" name="memberId" className="form-control"
+                  value={form.memberId} onChange={handleFieldChange}
                 >
                   <option value="">— Select a member —</option>
                   {members.map((m) => (
@@ -235,24 +159,16 @@ export default function IssueReturn({ onDataChange }) {
               <div className="form-group">
                 <label className="form-label" htmlFor="issueDate">Issue Date *</label>
                 <input
-                  id="issueDate"
-                  name="issueDate"
-                  type="date"
-                  className="form-control"
-                  value={form.issueDate}
-                  onChange={handleFieldChange}
+                  id="issueDate" name="issueDate" type="date" className="form-control"
+                  value={form.issueDate} onChange={handleFieldChange}
                 />
                 {errors.issueDate && <span className="form-error">{errors.issueDate}</span>}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="dueDate">Due Date *</label>
                 <input
-                  id="dueDate"
-                  name="dueDate"
-                  type="date"
-                  className="form-control"
-                  value={form.dueDate}
-                  onChange={handleFieldChange}
+                  id="dueDate" name="dueDate" type="date" className="form-control"
+                  value={form.dueDate} onChange={handleFieldChange}
                 />
                 {errors.dueDate && <span className="form-error">{errors.dueDate}</span>}
               </div>
@@ -262,18 +178,18 @@ export default function IssueReturn({ onDataChange }) {
             </div>
           </form>
           {availableBooks.length === 0 && (
-            <p style={{ marginTop: '12px', color: 'var(--color-text-muted)', fontSize: '0.83rem' }}>
-              No books available for issuing at the moment.
-            </p>
+            <div className="empty-state" style={{ padding: '20px 0 0 0' }}>
+              No books currently available for issuing.
+            </div>
           )}
         </div>
       )}
 
-      {/* Return Tab */}
       {tab === 'return' && (
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">Currently Issued Books ({activeTransactions.length})</span>
+            <span className="panel-title">Currently Issued Books</span>
+            <span className="panel-count">{activeTransactions.length}</span>
           </div>
           <div className="table-wrapper">
             <table>
@@ -298,24 +214,29 @@ export default function IssueReturn({ onDataChange }) {
                     </td>
                   </tr>
                 ) : (
-                  activeTransactions.map((tx) => (
-                    <tr key={tx.id}>
-                      <td style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{tx.id}</td>
-                      <td style={{ fontWeight: 500 }}>{tx.bookTitle}</td>
-                      <td>{tx.memberName}</td>
-                      <td style={{ color: 'var(--color-text-secondary)' }}>{tx.issueDate}</td>
-                      <td style={{ color: 'var(--color-text-secondary)' }}>{tx.dueDate}</td>
-                      <td>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => handleReturn(tx.id)}
-                          aria-label={`Return ${tx.bookTitle}`}
-                        >
-                          Return
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  activeTransactions.map((tx) => {
+                    const isOverdue = new Date(tx.dueDate) < new Date();
+                    return (
+                      <tr key={tx.id}>
+                        <td style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{tx.id}</td>
+                        <td style={{ fontWeight: 500 }}>{tx.bookTitle}</td>
+                        <td className="text-secondary">{tx.memberName}</td>
+                        <td className="text-secondary">{tx.issueDate}</td>
+                        <td style={{ color: isOverdue ? 'var(--color-danger)' : 'var(--color-text-secondary)' }}>
+                          {tx.dueDate}
+                          {isOverdue && <span className="overdue-tag">Overdue</span>}
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleReturn(tx.id)}
+                          >
+                            Return Book
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
