@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { getBooks, setBooks, addActivity } from '../utils/storage';
+import { faro } from '@grafana/faro-web-sdk';
 
 function generateId(books) {
   const nums = books.map((b) => parseInt(b.id.replace('B', ''), 10)).filter(Boolean);
@@ -53,6 +54,14 @@ export default function Books({ onDataChange }) {
     const updated = [...books, newBook];
     save(updated);
     addActivity(`Admin added "${newBook.title}"`);
+    
+    if (faro.api) {
+      faro.api.pushEvent('book_added', {
+        title: newBook.title,
+        category: newBook.category
+      });
+    }
+
     setForm(EMPTY_FORM);
     setShowForm(false);
   }

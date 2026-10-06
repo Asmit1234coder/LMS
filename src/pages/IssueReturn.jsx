@@ -5,6 +5,7 @@ import {
   getTransactions, setTransactions,
   addActivity,
 } from '../utils/storage';
+import { faro } from '@grafana/faro-web-sdk';
 
 function today() {
   return new Date().toISOString().split('T')[0];
@@ -100,6 +101,14 @@ export default function IssueReturn({ onDataChange }) {
     setTransactions(updatedTx);
 
     addActivity(`${member.name} issued "${book.title}"`);
+    
+    if (faro.api) {
+      faro.api.pushEvent('book_issued', {
+        bookId: book.id,
+        memberId: member.id
+      });
+    }
+
     setForm(EMPTY_ISSUE);
     showSuccess(`"${book.title}" successfully issued to ${member.name}.`);
     refresh();
@@ -128,6 +137,14 @@ export default function IssueReturn({ onDataChange }) {
     setTransactions(updatedTx);
 
     addActivity(`${tx.memberName} returned "${tx.bookTitle}"`);
+    
+    if (faro.api) {
+      faro.api.pushEvent('book_returned', {
+        bookId: tx.bookId,
+        memberId: tx.memberId
+      });
+    }
+
     showSuccess(`"${tx.bookTitle}" returned successfully.`);
     refresh();
   }

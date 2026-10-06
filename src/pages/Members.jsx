@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { getMembers, setMembers, addActivity } from '../utils/storage';
+import { faro } from '@grafana/faro-web-sdk';
 
 function generateId(members) {
   const nums = members.map((m) => parseInt(m.id.replace('M', ''), 10)).filter(Boolean);
@@ -53,6 +54,13 @@ export default function Members({ onDataChange }) {
     const updated = [...members, newMember];
     save(updated);
     addActivity(`Admin added member "${newMember.name}"`);
+    
+    if (faro.api) {
+      faro.api.pushEvent('member_added', {
+        nameLength: String(newMember.name.length)
+      });
+    }
+
     setForm(EMPTY_FORM);
     setShowForm(false);
   }
