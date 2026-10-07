@@ -86,17 +86,7 @@ export default function Members({ onDataChange }) {
       </div>
 
       {message && (
-        <div style={{
-          background: 'var(--color-success-light)',
-          border: '1px solid #bbf7d0',
-          padding: '10px 14px',
-          marginBottom: '16px',
-          fontSize: '0.85rem',
-          color: 'var(--color-success)',
-          borderRadius: 'var(--radius-sm)'
-        }}>
-          {message}
-        </div>
+        <div className="toast-message">{message}</div>
       )}
 
       {showForm && (
@@ -165,6 +155,7 @@ export default function Members({ onDataChange }) {
                 <tr>
                   <td colSpan={6}>
                     <div className="empty-state">
+                      <div className="empty-state-icon">👥</div>
                       <div className="empty-state-title">No members found</div>
                       Try a different search or add a member.
                     </div>
@@ -173,7 +164,7 @@ export default function Members({ onDataChange }) {
               ) : (
                 filtered.map((member) => (
                   <tr key={member.id}>
-                    <td style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{member.id}</td>
+                    <td><span className="mono">{member.id}</span></td>
                     <td style={{ fontWeight: 500 }}>{member.name}</td>
                     <td className="text-secondary">{member.email}</td>
                     <td className="text-secondary">{member.phone}</td>

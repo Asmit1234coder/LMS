@@ -44,22 +44,26 @@ export default function Dashboard() {
 
       {/* Statistics Row */}
       <div className="stat-grid">
-        <div className="stat-card">
+        <div className="stat-card stat-card--total">
+          <div className="stat-icon stat-icon--total">📚</div>
           <div className="stat-label">Total Books</div>
           <div className="stat-value">{totalBooks}</div>
           <div className="stat-note">In collection</div>
         </div>
         <div className="stat-card stat-card--available">
+          <div className="stat-icon stat-icon--available">✅</div>
           <div className="stat-label">Available</div>
           <div className="stat-value">{availableBooks}</div>
           <div className="stat-note">Ready to issue</div>
         </div>
         <div className="stat-card stat-card--issued">
+          <div className="stat-icon stat-icon--issued">📤</div>
           <div className="stat-label">Issued</div>
           <div className="stat-value">{issuedBooks}</div>
           <div className="stat-note">Currently borrowed</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card stat-card--members">
+          <div className="stat-icon stat-icon--members">👤</div>
           <div className="stat-label">Members</div>
           <div className="stat-value">{totalMembers}</div>
           <div className="stat-note">Registered</div>
@@ -72,6 +76,7 @@ export default function Dashboard() {
         <div className="panel">
           <div className="panel-header">
             <span className="panel-title">Recently Added Books</span>
+            <span className="panel-count">{recentBooks.length}</span>
           </div>
           <div className="table-wrapper">
             <table>
@@ -87,13 +92,17 @@ export default function Dashboard() {
                 {recentBooks.length === 0 ? (
                   <tr>
                     <td colSpan={4}>
-                      <div className="empty-state">No books in collection yet.</div>
+                      <div className="empty-state">
+                        <div className="empty-state-icon">📭</div>
+                        <div className="empty-state-title">No books yet</div>
+                        Add some books to get started.
+                      </div>
                     </td>
                   </tr>
                 ) : (
                   recentBooks.map((book) => (
                     <tr key={book.id}>
-                      <td style={{ fontWeight: 500 }}>{book.title}</td>
+                      <td style={{ fontWeight: 600 }}>{book.title}</td>
                       <td className="text-secondary">{book.author}</td>
                       <td className="text-secondary">{book.category}</td>
                       <td>
@@ -113,9 +122,14 @@ export default function Dashboard() {
         <div className="panel">
           <div className="panel-header">
             <span className="panel-title">Recent Activity</span>
+            {activity.length > 0 && <span className="panel-count">{Math.min(activity.length, 10)}</span>}
           </div>
           {activity.length === 0 ? (
-            <div className="empty-state">No activity recorded yet.</div>
+            <div className="empty-state">
+              <div className="empty-state-icon">🔔</div>
+              <div className="empty-state-title">No activity yet</div>
+              Actions will appear here.
+            </div>
           ) : (
             <ul className="activity-list">
               {activity.slice(0, 10).map((item) => (
@@ -152,10 +166,10 @@ export default function Dashboard() {
                   const isOverdue = new Date(t.dueDate) < new Date();
                   return (
                     <tr key={t.id}>
-                      <td style={{ fontWeight: 500 }}>{t.bookTitle}</td>
+                      <td style={{ fontWeight: 600 }}>{t.bookTitle}</td>
                       <td className="text-secondary">{t.memberName}</td>
                       <td className="text-secondary">{t.issueDate}</td>
-                      <td style={{ color: isOverdue ? 'var(--color-danger)' : 'var(--color-text-secondary)' }}>
+                      <td style={{ color: isOverdue ? 'var(--color-danger)' : 'var(--color-text-secondary)', fontWeight: isOverdue ? 600 : 400 }}>
                         {t.dueDate}
                         {isOverdue && <span className="overdue-tag">Overdue</span>}
                       </td>

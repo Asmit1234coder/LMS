@@ -88,17 +88,7 @@ export default function Books({ onDataChange }) {
       </div>
 
       {message && (
-        <div style={{
-          background: 'var(--color-success-light)',
-          border: '1px solid #bbf7d0',
-          padding: '10px 14px',
-          marginBottom: '16px',
-          fontSize: '0.85rem',
-          color: 'var(--color-success)',
-          borderRadius: 'var(--radius-sm)'
-        }}>
-          {message}
-        </div>
+        <div className="toast-message">{message}</div>
       )}
 
       {showForm && (
@@ -185,6 +175,7 @@ export default function Books({ onDataChange }) {
                 <tr>
                   <td colSpan={7}>
                     <div className="empty-state">
+                      <div className="empty-state-icon">📚</div>
                       <div className="empty-state-title">No books found</div>
                       Try changing your search or add a new book.
                     </div>
@@ -193,7 +184,7 @@ export default function Books({ onDataChange }) {
               ) : (
                 filtered.map((book) => (
                   <tr key={book.id}>
-                    <td style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{book.id}</td>
+                    <td><span className="mono">{book.id}</span></td>
                     <td style={{ fontWeight: 500 }}>{book.title}</td>
                     <td className="text-secondary">{book.author}</td>
                     <td className="text-secondary">{book.category}</td>

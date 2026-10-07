@@ -97,17 +97,7 @@ export default function IssueReturn({ onDataChange }) {
       </div>
 
       {message && (
-        <div style={{
-          background: 'var(--color-success-light)',
-          border: '1px solid #bbf7d0',
-          padding: '10px 14px',
-          marginBottom: '16px',
-          fontSize: '0.85rem',
-          color: 'var(--color-success)',
-          borderRadius: 'var(--radius-sm)'
-        }}>
-          {message}
-        </div>
+        <div className="toast-message">{message}</div>
       )}
 
       <div className="tabs">
@@ -208,6 +198,7 @@ export default function IssueReturn({ onDataChange }) {
                   <tr>
                     <td colSpan={6}>
                       <div className="empty-state">
+                        <div className="empty-state-icon">📬</div>
                         <div className="empty-state-title">No books currently issued</div>
                         Issue a book from the Issue tab.
                       </div>
@@ -218,7 +209,7 @@ export default function IssueReturn({ onDataChange }) {
                     const isOverdue = new Date(tx.dueDate) < new Date();
                     return (
                       <tr key={tx.id}>
-                        <td style={{ color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{tx.id}</td>
+                        <td><span className="mono">{tx.id}</span></td>
                         <td style={{ fontWeight: 500 }}>{tx.bookTitle}</td>
                         <td className="text-secondary">{tx.memberName}</td>
                         <td className="text-secondary">{tx.issueDate}</td>

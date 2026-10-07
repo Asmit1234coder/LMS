@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Books from './pages/Books';
 import IssueReturn from './pages/IssueReturn';
 import Members from './pages/Members';
+import Login from './pages/Login';
 import { setBooks } from './services/bookService';
 import { setMembers } from './services/memberService';
 import { setTransactions, addActivityEntry } from './services/circulationService';
@@ -33,11 +34,16 @@ function renderPage(activePage, onDataChange) {
 }
 
 export default function App() {
+  const [loggedIn, setLoggedIn] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
   const [, forceUpdate] = useState(0);
 
   function handleDataChange() {
     forceUpdate((n) => n + 1);
+  }
+
+  if (!loggedIn) {
+    return <Login onLogin={() => setLoggedIn(true)} />;
   }
 
   return (
@@ -52,3 +58,4 @@ export default function App() {
     </div>
   );
 }
+
